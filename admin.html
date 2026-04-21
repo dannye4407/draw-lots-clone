@@ -187,6 +187,10 @@ function updateRankOptions(suitEl) {
   updateTotal();
 }
 
+function escAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
 function addPrizeRow(data = {}) {
   const tbody = document.getElementById('prize-body');
   tbody.querySelector('.empty-row')?.remove();
@@ -204,8 +208,8 @@ function addPrizeRow(data = {}) {
   tr.innerHTML = `
     <td><select class="suit-select" onchange="updateRankOptions(this)">${suitOpts}</select></td>
     <td><select class="rank-select">${rankOpts}</select></td>
-    <td><input type="text"   class="prize-name"  placeholder="Prize name" value="${data.prize || ''}"></td>
-    <td><input type="number" class="prize-slots" min="1" value="${data.slots || 1}" onchange="updateTotal()"></td>
+    <td><input type="text"   class="prize-name"  placeholder="Prize name" value="${escAttr(data.prize || '')}"></td>
+    <td><input type="number" class="prize-slots" min="1" value="${escAttr(data.slots || 1)}" onchange="updateTotal()"></td>
     <td><button class="btn-remove" onclick="removeRow(this)" title="Remove">×</button></td>
   `;
   tbody.appendChild(tr);
@@ -266,7 +270,9 @@ function saveConfig() {
 function loadConfig() {
   const raw = localStorage.getItem('dlConfig');
   if (!raw) return;
-  const config = JSON.parse(raw);
+  let config;
+  try { config = JSON.parse(raw); } catch { return; }
+  if (!config || !Array.isArray(config.prizes)) return;
   document.getElementById('pool-size').value = config.poolSize;
   config.prizes.forEach(p => addPrizeRow(p));
   updateTotal();
