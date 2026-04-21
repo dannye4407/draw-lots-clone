@@ -75,17 +75,22 @@
     #not-configured h2 { font-size: 1.5rem; }
     #not-configured p { color: var(--muted); }
 
-    #game-view { display: none; padding: 16px; }
+    #game-view {
+      display: none;
+      height: calc(100vh - 65px);
+      padding: 8px;
+      box-sizing: border-box;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
 
     .card-grid {
       display: grid;
       grid-template-columns: repeat(9, 1fr);
-      gap: 6px;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-    @media (max-width: 640px) {
-      .card-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+      gap: 4px;
+      /* Fit all 54 cards (9×6, aspect-ratio 5/7) within the viewport */
+      width: min(calc(100vw - 16px), calc((100vh - 101px) * 15 / 14 + 32px));
     }
 
     .card {
@@ -248,8 +253,8 @@
         FULL_DECK.push({ suit: s.name, rank: r, symbol: s.symbol, colorClass: s.colorClass });
       }
     }
-    FULL_DECK.push({ suit: 'joker', rank: 'RJ', symbol: '★', colorClass: 'joker-red',   display: 'Red Joker'   });
-    FULL_DECK.push({ suit: 'joker', rank: 'BJ', symbol: '★', colorClass: 'joker-black', display: 'Black Joker' });
+    FULL_DECK.push({ suit: 'joker', rank: 'RJ', symbol: '🃏', colorClass: 'joker-red',   display: 'Red Joker'   });
+    FULL_DECK.push({ suit: 'joker', rank: 'BJ', symbol: '🃏', colorClass: 'joker-black', display: 'Black Joker' });
 
     let gameActive = false;
 
@@ -402,7 +407,7 @@
       const raw = localStorage.getItem('dlConfig');
       if (!raw) return;
       document.getElementById('not-configured').style.display = 'none';
-      document.getElementById('game-view').style.display = 'block';
+      document.getElementById('game-view').style.display = 'flex';
       renderGrid();
     }
 
