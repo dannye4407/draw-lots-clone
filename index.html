@@ -79,13 +79,13 @@
 
     .card-grid {
       display: grid;
-      grid-template-columns: repeat(10, 1fr);
+      grid-template-columns: repeat(9, 1fr);
       gap: 6px;
       max-width: 900px;
       margin: 0 auto;
     }
     @media (max-width: 640px) {
-      .card-grid { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+      .card-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
     }
 
     .card {
@@ -118,12 +118,18 @@
     }
 
     .card-back {
-      background: var(--card-back-bg);
-      border: 1px solid var(--card-back-border);
-      color: var(--card-back-text);
-      font-size: clamp(0.9rem, 2.5vw, 1.4rem);
-      font-weight: 700;
-      letter-spacing: 0.05em;
+      background-color: #b71c1c;
+      background-image:
+        repeating-linear-gradient(45deg,
+          rgba(255,255,255,0.18) 0px, rgba(255,255,255,0.18) 1px,
+          transparent 1px, transparent 9px),
+        repeating-linear-gradient(-45deg,
+          rgba(255,255,255,0.18) 0px, rgba(255,255,255,0.18) 1px,
+          transparent 1px, transparent 9px);
+      border: 2px solid #fff;
+      box-shadow:
+        inset 0 0 0 3px #b71c1c,
+        inset 0 0 0 5px rgba(255,255,255,0.65);
     }
 
     .card-front {
@@ -316,7 +322,7 @@
         card.className = 'card';
         card.innerHTML = `
           <div class="card-inner">
-            <div class="card-back">?</div>
+            <div class="card-back"></div>
             <div class="card-front"></div>
           </div>`;
         card.addEventListener('click', () => handleCardClick(card));
