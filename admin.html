@@ -167,7 +167,114 @@
   </main>
 
   <script>
-    // JS added in Task 4
+const SUIT_OPTIONS = [
+  { value: 'spades',   label: '♠ Spades'   },
+  { value: 'hearts',   label: '♥ Hearts'   },
+  { value: 'diamonds', label: '♦ Diamonds' },
+  { value: 'clubs',    label: '♣ Clubs'    },
+  { value: 'joker',    label: '🃏 Joker'   },
+];
+
+const RANK_MAP = {
+  default: ['A','2','3','4','5','6','7','8','9','10','J','Q','K'].map(r => ({ value: r, label: r })),
+  joker:   [{ value: 'RJ', label: 'Red Joker' }, { value: 'BJ', label: 'Black Joker' }],
+};
+
+function updateRankOptions(suitEl) {
+  const rankEl = suitEl.closest('tr').querySelector('.rank-select');
+  const ranks = suitEl.value === 'joker' ? RANK_MAP.joker : RANK_MAP.default;
+  rankEl.innerHTML = ranks.map(r => `<option value="${r.value}">${r.label}</option>`).join('');
+  updateTotal();
+}
+
+function addPrizeRow(data = {}) {
+  const tbody = document.getElementById('prize-body');
+  tbody.querySelector('.empty-row')?.remove();
+
+  const suit = data.suit || 'spades';
+  const ranks = suit === 'joker' ? RANK_MAP.joker : RANK_MAP.default;
+  const suitOpts = SUIT_OPTIONS.map(s =>
+    `<option value="${s.value}" ${s.value === suit ? 'selected' : ''}>${s.label}</option>`
+  ).join('');
+  const rankOpts = ranks.map(r =>
+    `<option value="${r.value}" ${r.value === data.rank ? 'selected' : ''}>${r.label}</option>`
+  ).join('');
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><select class="suit-select" onchange="updateRankOptions(this)">${suitOpts}</select></td>
+    <td><select class="rank-select">${rankOpts}</select></td>
+    <td><input type="text"   class="prize-name"  placeholder="Prize name" value="${data.prize || ''}"></td>
+    <td><input type="number" class="prize-slots" min="1" value="${data.slots || 1}" onchange="updateTotal()"></td>
+    <td><button class="btn-remove" onclick="removeRow(this)" title="Remove">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  updateTotal();
+}
+
+function removeRow(btn) {
+  const tbody = document.getElementById('prize-body');
+  btn.closest('tr').remove();
+  if (!tbody.querySelector('tr:not(.empty-row)')) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">No prizes configured. Add one below.</td></tr>';
+  }
+  updateTotal();
+}
+
+function updateTotal() {
+  const poolSize = parseInt(document.getElementById('pool-size').value) || 0;
+  const used = [...document.querySelectorAll('.prize-slots')]
+    .reduce((sum, el) => sum + (parseInt(el.value) || 0), 0);
+  const el = document.getElementById('total-display');
+  el.textContent = `${used.toLocaleString()} of ${poolSize.toLocaleString()} slots assigned`;
+  el.className = used > poolSize ? 'over' : '';
+}
+
+function saveConfig() {
+  const poolSize = parseInt(document.getElementById('pool-size').value);
+  if (!poolSize || poolSize < 1) { alert('Pool size must be at least 1.'); return; }
+
+  const rows = [...document.querySelectorAll('#prize-body tr:not(.empty-row)')];
+  const prizes = [];
+  const seen = new Set();
+
+  for (const row of rows) {
+    const suit  = row.querySelector('.suit-select').value;
+    const rank  = row.querySelector('.rank-select').value;
+    const prize = row.querySelector('.prize-name').value.trim();
+    const slots = parseInt(row.querySelector('.prize-slots').value);
+    if (!prize)          { alert('All prize rows must have a prize name.');    return; }
+    if (!slots || slots < 1) { alert('All prize rows must have at least 1 slot.'); return; }
+    const key = `${suit}-${rank}`;
+    if (seen.has(key))   { alert(`Duplicate card: ${suit} ${rank}.`);          return; }
+    seen.add(key);
+    prizes.push({ suit, rank, prize, slots });
+  }
+
+  const totalSlots = prizes.reduce((s, p) => s + p.slots, 0);
+  if (totalSlots > poolSize) {
+    alert(`Over-allocated: ${totalSlots} slots used but pool size is ${poolSize}.`);
+    return;
+  }
+
+  localStorage.setItem('dlConfig', JSON.stringify({ poolSize, prizes }));
+  const status = document.getElementById('save-status');
+  status.style.display = 'inline';
+  setTimeout(() => { status.style.display = 'none'; }, 2000);
+}
+
+function loadConfig() {
+  const raw = localStorage.getItem('dlConfig');
+  if (!raw) return;
+  const config = JSON.parse(raw);
+  document.getElementById('pool-size').value = config.poolSize;
+  config.prizes.forEach(p => addPrizeRow(p));
+  updateTotal();
+}
+
+document.getElementById('pool-size').addEventListener('input', updateTotal);
+loadConfig();
+updateTotal();
   </script>
 </body>
 </html>
