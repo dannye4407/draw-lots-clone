@@ -200,7 +200,7 @@
     <h1>Draw Lots</h1>
     <div class="header-actions">
       <a class="btn" href="admin.html">⚙ Admin</a>
-      <button class="btn btn-icon" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+      <button class="btn btn-icon" id="theme-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle light/dark theme">☀️</button>
     </div>
   </header>
 
@@ -214,7 +214,7 @@
     <div class="card-grid" id="card-grid"></div>
   </div>
 
-  <div id="prize-modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="prize-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-prize">
     <div class="modal-overlay" onclick="playAgain()"></div>
     <div class="modal-box">
       <div class="modal-emoji"  id="modal-emoji"></div>
@@ -245,13 +245,18 @@
     let gameActive = false;
 
     // ── RNG ───────────────────────────────────────────────────────────────
+    function unbiasedRandom(max) {
+      const limit = Math.floor(0x100000000 / max) * max;
+      let r;
+      do { r = crypto.getRandomValues(new Uint32Array(1))[0]; } while (r >= limit);
+      return r % max;
+    }
+
     // Swap point: replace this function body with fetch('/api/outcome') when
     // the server is ready. Return shape must stay: { suit, rank, symbol,
     // colorClass, display?, prize: string|null }
     async function getOutcome(config) {
-      const buf = new Uint32Array(1);
-      crypto.getRandomValues(buf);
-      const roll = (buf[0] % config.poolSize) + 1;
+      const roll = unbiasedRandom(config.poolSize) + 1;
 
       let cursor = 0;
       for (const p of config.prizes) {
@@ -266,7 +271,7 @@
       const prizeKeys = new Set(config.prizes.map(p => `${p.suit}-${p.rank}`));
       const nonPrize  = FULL_DECK.filter(c => !prizeKeys.has(`${c.suit}-${c.rank}`));
       const pool = nonPrize.length > 0 ? nonPrize : FULL_DECK;
-      const idx = crypto.getRandomValues(new Uint32Array(1))[0] % pool.length;
+      const idx = unbiasedRandom(pool.length);
       return { ...pool[idx], prize: null };
     }
 
@@ -325,7 +330,13 @@
         return;
       }
 
-      const outcome = await getOutcome(config);
+      let outcome;
+      try {
+        outcome = await getOutcome(config);
+      } catch {
+        gameActive = true;
+        return;
+      }
 
       setCardFace(cardEl, outcome);
 
@@ -381,6 +392,11 @@
     }
 
     init();
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !document.getElementById('prize-modal').classList.contains('hidden'))
+        playAgain();
+    });
   </script>
 </body>
 </html>
