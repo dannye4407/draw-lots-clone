@@ -144,7 +144,10 @@
     }
     .card-front .corner.tl { top: 2px;    left: 3px; }
     .card-front .corner.br { bottom: 2px; right: 3px; transform: rotate(180deg); }
-    .card-front .cs { font-size: clamp(1rem, 2.8vw, 1.7rem); }
+    .card-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+    .card-rank { font-size: clamp(1.6rem, 4.5vw, 3rem); font-weight: 900; line-height: 1; }
+    .card-suit-sym { font-size: clamp(0.7rem, 2vw, 1.2rem); line-height: 1; }
+    .card-joker-label { font-size: clamp(0.55rem, 1.5vw, 0.85rem); font-weight: 800; letter-spacing: 0.05em; line-height: 1; text-align: center; }
 
     .card-front.red   { color: #c0392b; }
     .card-front.black { color: #1a202c; }
@@ -287,13 +290,19 @@
       front.className = `card-front ${outcome.colorClass}`;
       if (outcome.suit === 'joker') {
         front.innerHTML = `
-          <span class="corner tl">JOKER</span>
-          <span class="cs">${outcome.symbol}</span>
-          <span class="corner br">JOKER</span>`;
+          <span class="corner tl">${outcome.symbol}<br>JKR</span>
+          <div class="card-center">
+            <span class="card-rank">${outcome.symbol}</span>
+            <span class="card-joker-label">${outcome.display}</span>
+          </div>
+          <span class="corner br">${outcome.symbol}<br>JKR</span>`;
       } else {
         front.innerHTML = `
           <span class="corner tl">${outcome.rank}<br>${outcome.symbol}</span>
-          <span class="cs">${outcome.symbol}</span>
+          <div class="card-center">
+            <span class="card-rank">${outcome.rank}</span>
+            <span class="card-suit-sym">${outcome.symbol}</span>
+          </div>
           <span class="corner br">${outcome.rank}<br>${outcome.symbol}</span>`;
       }
     }
