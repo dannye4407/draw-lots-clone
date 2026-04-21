@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Draw Lots — Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f0f2f5;
+      --surface: #ffffff;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; }
+    header a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+
+    main { max-width: 820px; margin: 32px auto; padding: 0 16px; }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .panel h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+    input[type="number"], input[type="text"], select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+    .pool-row { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+    .pool-row > div:first-child { flex: 0 0 180px; }
+    #total-display { font-size: 0.9rem; padding-bottom: 10px; color: var(--muted); }
+    #total-display.over { color: var(--danger); font-weight: 600; }
+
+    .prize-table { width: 100%; border-collapse: collapse; }
+    .prize-table th {
+      text-align: left;
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 0 8px 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .prize-table td { padding: 6px 8px 6px 0; vertical-align: middle; }
+    .prize-table select { width: 110px; }
+    .prize-table input[type="text"] { min-width: 130px; }
+    .prize-table input[type="number"] { width: 80px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--bg); }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .btn-remove {
+      background: transparent;
+      border: none;
+      color: var(--danger);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .btn-remove:hover { background: #fee2e2; }
+
+    .actions { display: flex; gap: 12px; align-items: center; }
+    #save-status { font-size: 0.85rem; color: var(--success); display: none; }
+
+    .empty-state { text-align: center; color: var(--muted); padding: 20px 0; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Draw Lots — Admin</h1>
+    <a href="index.html">← Back to Game</a>
+  </header>
+
+  <main>
+    <div class="panel">
+      <h2>Pool Settings</h2>
+      <div class="pool-row">
+        <div>
+          <label for="pool-size">Pool Size (RNG picks 1 to N)</label>
+          <input type="number" id="pool-size" min="1" value="10000">
+        </div>
+        <div id="total-display">0 of 10,000 slots assigned</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Prize Cards</h2>
+      <table class="prize-table" id="prize-table">
+        <thead>
+          <tr>
+            <th>Suit</th>
+            <th>Rank</th>
+            <th>Prize Name</th>
+            <th>Slots</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="prize-body">
+          <tr class="empty-row">
+            <td colspan="5" class="empty-state">No prizes configured. Add one below.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top: 12px;">
+        <button class="btn" onclick="addPrizeRow()">+ Add Prize</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+      <span id="save-status">✓ Saved</span>
+    </div>
+  </main>
+
+  <script>
+    // JS added in Task 4
+  </script>
+</body>
+</html>
