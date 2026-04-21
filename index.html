@@ -258,14 +258,16 @@
         cursor += p.slots;
         if (roll <= cursor) {
           const card = FULL_DECK.find(c => c.suit === p.suit && c.rank === p.rank);
-          return { ...card, prize: p.prize };
+          if (card) return { ...card, prize: p.prize };
+          break;
         }
       }
 
       const prizeKeys = new Set(config.prizes.map(p => `${p.suit}-${p.rank}`));
       const nonPrize  = FULL_DECK.filter(c => !prizeKeys.has(`${c.suit}-${c.rank}`));
-      const idx = crypto.getRandomValues(new Uint32Array(1))[0] % nonPrize.length;
-      return { ...nonPrize[idx], prize: null };
+      const pool = nonPrize.length > 0 ? nonPrize : FULL_DECK;
+      const idx = crypto.getRandomValues(new Uint32Array(1))[0] % pool.length;
+      return { ...pool[idx], prize: null };
     }
 
     // ── Card helpers ──────────────────────────────────────────────────────
@@ -314,7 +316,15 @@
       if (!gameActive || cardEl.classList.contains('revealed')) return;
       gameActive = false;
 
-      const config  = JSON.parse(localStorage.getItem('dlConfig'));
+      let config;
+      try {
+        config = JSON.parse(localStorage.getItem('dlConfig'));
+        if (!config) throw new Error();
+      } catch {
+        gameActive = true;
+        return;
+      }
+
       const outcome = await getOutcome(config);
 
       setCardFace(cardEl, outcome);
