@@ -229,7 +229,7 @@
     }
     .title-box .ts-title { font-size: 1.9rem; font-weight: 900; margin-bottom: 4px; letter-spacing: -0.02em; }
     .title-box .ts-subtitle { color: var(--muted); font-size: 0.88rem; margin-bottom: 24px; }
-    .prize-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; text-align: left; }
+    .prize-table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 8px; text-align: left; }
     .prize-table th { color: var(--muted); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 8px; border-bottom: 1px solid var(--border); }
     .prize-table td { padding: 9px 8px; font-size: 0.95rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
     .prize-table td:first-child { font-family: Georgia, serif; font-weight: 700; font-size: 1rem; width: 90px; white-space: nowrap; }
@@ -262,12 +262,11 @@
     <div class="title-box">
       <div class="ts-title">Chase the Ace ♠</div>
       <p class="ts-subtitle">Pick any card — can you find the winner?</p>
+      <button class="btn-buy" onclick="startGame()">Pick a Card (Cost: £2.50)</button>
       <table class="prize-table">
         <thead><tr><th>Card</th><th>Prize</th></tr></thead>
         <tbody id="prize-table-body"></tbody>
       </table>
-      <p class="ts-price-note">Each pick costs <strong>£2.50</strong></p>
-      <button class="btn-buy" onclick="startGame()">Buy a Pick — £2.50</button>
     </div>
   </div>
 
@@ -441,37 +440,49 @@
     }
 
     // ── Title screen ──────────────────────────────────────────────────────
-    const SUIT_META = {
-      spades:   { symbol: '♠', cls: 'suit-black' },
-      hearts:   { symbol: '♥', cls: 'suit-red'   },
-      diamonds: { symbol: '♦', cls: 'suit-red'   },
-      clubs:    { symbol: '♣', cls: 'suit-black' },
-      joker:    { symbol: '🃏', cls: '' },
-    };
-
     function populatePrizeTable(config) {
       const tbody = document.getElementById('prize-table-body');
       tbody.innerHTML = '';
-      for (const p of config.prizes) {
-        const meta = SUIT_META[p.suit] || { symbol: p.suit, cls: '' };
-        const tr = document.createElement('tr');
 
-        const tdCard = document.createElement('td');
-        if (p.suit === 'joker') {
-          tdCard.textContent = `🃏 ${p.rank === 'RJ' ? 'Red Joker' : 'Black Joker'}`;
+      const RANK_LABEL  = { A: 'Ace',  J: 'Jack',  Q: 'Queen', K: 'King'  };
+      const RANK_PLURAL = { A: 'Aces', J: 'Jacks', Q: 'Queens', K: 'Kings' };
+      const SUIT_LABEL  = { spades: 'Spades', hearts: 'Hearts', diamonds: 'Diamonds', clubs: 'Clubs' };
+
+      function rankName(r)   { return RANK_LABEL[r]  || r; }
+      function rankPlural(r) { return RANK_PLURAL[r] || (r + 's'); }
+      function suitName(s)   { return SUIT_LABEL[s]  || s; }
+
+      // Group by (joker|prize) or (rank|prize), preserving first-seen order
+      const groups = [];
+      const groupIdx = new Map();
+
+      for (const p of config.prizes) {
+        const key = p.suit === 'joker' ? `joker|${p.prize}` : `${p.rank}|${p.prize}`;
+        if (!groupIdx.has(key)) {
+          groupIdx.set(key, groups.length);
+          groups.push({ isJoker: p.suit === 'joker', rank: p.rank, prize: p.prize, variants: new Set() });
+        }
+        groups[groupIdx.get(key)].variants.add(p.suit === 'joker' ? p.rank : p.suit);
+      }
+
+      for (const g of groups) {
+        let cardLabel;
+        if (g.isJoker) {
+          cardLabel = g.variants.size >= 2 ? 'Any Joker'
+            : (g.variants.has('RJ') ? 'Red Joker' : 'Black Joker');
         } else {
-          const rank = document.createElement('span');
-          rank.textContent = p.rank;
-          const suit = document.createElement('span');
-          suit.className = meta.cls;
-          suit.textContent = ' ' + meta.symbol;
-          tdCard.appendChild(rank);
-          tdCard.appendChild(suit);
+          const n = g.variants.size;
+          if      (n === 4) { cardLabel = `Any ${rankName(g.rank)}`; }
+          else if (n === 3) { cardLabel = `Other ${rankPlural(g.rank)}`; }
+          else if (n === 2) { cardLabel = [...g.variants].map(s => `${rankName(g.rank)} of ${suitName(s)}`).join(' or '); }
+          else              { cardLabel = `${rankName(g.rank)} of ${suitName([...g.variants][0])}`; }
         }
 
+        const tr = document.createElement('tr');
+        const tdCard = document.createElement('td');
+        tdCard.textContent = cardLabel;
         const tdPrize = document.createElement('td');
-        tdPrize.textContent = p.prize;
-
+        tdPrize.textContent = g.prize;
         tr.appendChild(tdCard);
         tr.appendChild(tdPrize);
         tbody.appendChild(tr);
