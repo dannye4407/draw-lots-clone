@@ -211,6 +211,42 @@
       transition: background 0.15s;
     }
     .modal-play-again:hover { background: #2563eb; }
+
+    /* Title Screen */
+    #title-screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 300; background: rgba(0,0,0,0.8); }
+    #title-screen.hidden { display: none; }
+    .title-box {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 36px 32px;
+      text-align: center;
+      max-width: 440px;
+      width: 92%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.65);
+      animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .title-box .ts-title { font-size: 1.9rem; font-weight: 900; margin-bottom: 4px; letter-spacing: -0.02em; }
+    .title-box .ts-subtitle { color: var(--muted); font-size: 0.88rem; margin-bottom: 24px; }
+    .prize-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; text-align: left; }
+    .prize-table th { color: var(--muted); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+    .prize-table td { padding: 9px 8px; font-size: 0.95rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .prize-table td:first-child { font-family: Georgia, serif; font-weight: 700; font-size: 1rem; width: 90px; white-space: nowrap; }
+    .suit-red   { color: #c0392b; }
+    .suit-black { color: var(--text); }
+    .ts-price-note { font-size: 0.88rem; color: var(--muted); margin-bottom: 18px; }
+    .btn-buy {
+      display: block; width: 100%;
+      padding: 14px;
+      background: #16a34a; color: #fff;
+      border: none; border-radius: 10px;
+      font-size: 1.1rem; font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      letter-spacing: 0.01em;
+    }
+    .btn-buy:hover { background: #15803d; }
   </style>
 </head>
 <body>
@@ -221,6 +257,19 @@
       <button class="btn btn-icon" id="theme-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle light/dark theme">☀️</button>
     </div>
   </header>
+
+  <div id="title-screen" class="hidden">
+    <div class="title-box">
+      <div class="ts-title">Chase the Ace ♠</div>
+      <p class="ts-subtitle">Pick any card — can you find the winner?</p>
+      <table class="prize-table">
+        <thead><tr><th>Card</th><th>Prize</th></tr></thead>
+        <tbody id="prize-table-body"></tbody>
+      </table>
+      <p class="ts-price-note">Each pick costs <strong>£2.50</strong></p>
+      <button class="btn-buy" onclick="startGame()">Buy a Pick — £2.50</button>
+    </div>
+  </div>
 
   <div id="not-configured">
     <h2>Not configured yet</h2>
@@ -387,6 +436,52 @@
 
     function playAgain() {
       document.getElementById('prize-modal').classList.add('hidden');
+      document.getElementById('game-view').style.display = 'none';
+      document.getElementById('title-screen').classList.remove('hidden');
+    }
+
+    // ── Title screen ──────────────────────────────────────────────────────
+    const SUIT_META = {
+      spades:   { symbol: '♠', cls: 'suit-black' },
+      hearts:   { symbol: '♥', cls: 'suit-red'   },
+      diamonds: { symbol: '♦', cls: 'suit-red'   },
+      clubs:    { symbol: '♣', cls: 'suit-black' },
+      joker:    { symbol: '🃏', cls: '' },
+    };
+
+    function populatePrizeTable(config) {
+      const tbody = document.getElementById('prize-table-body');
+      tbody.innerHTML = '';
+      for (const p of config.prizes) {
+        const meta = SUIT_META[p.suit] || { symbol: p.suit, cls: '' };
+        const tr = document.createElement('tr');
+
+        const tdCard = document.createElement('td');
+        if (p.suit === 'joker') {
+          tdCard.textContent = `🃏 ${p.rank === 'RJ' ? 'Red Joker' : 'Black Joker'}`;
+        } else {
+          const rank = document.createElement('span');
+          rank.textContent = p.rank;
+          const suit = document.createElement('span');
+          suit.className = meta.cls;
+          suit.textContent = ' ' + meta.symbol;
+          tdCard.appendChild(rank);
+          tdCard.appendChild(suit);
+        }
+
+        const tdPrize = document.createElement('td');
+        tdPrize.textContent = p.prize;
+
+        tr.appendChild(tdCard);
+        tr.appendChild(tdPrize);
+        tbody.appendChild(tr);
+      }
+    }
+
+    function startGame() {
+      document.getElementById('title-screen').classList.add('hidden');
+      document.getElementById('not-configured').style.display = 'none';
+      document.getElementById('game-view').style.display = 'flex';
       renderGrid();
     }
 
@@ -410,9 +505,11 @@
       applyTheme();
       const raw = localStorage.getItem('dlConfig');
       if (!raw) return;
+      let config;
+      try { config = JSON.parse(raw); } catch { return; }
+      populatePrizeTable(config);
       document.getElementById('not-configured').style.display = 'none';
-      document.getElementById('game-view').style.display = 'flex';
-      renderGrid();
+      document.getElementById('title-screen').classList.remove('hidden');
     }
 
     init();
