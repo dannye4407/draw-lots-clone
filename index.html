@@ -45,7 +45,16 @@
       align-items: center;
       justify-content: space-between;
     }
-    header h1 { font-size: 1.2rem; font-weight: 700; }
+    header h1 {
+      font-size: 1.9rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #f59e0b 0%, #fef08a 55%, #d97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 1px 8px rgba(251,191,36,0.55));
+    }
     .header-actions { display: flex; gap: 10px; align-items: center; }
 
     .btn {
@@ -227,7 +236,17 @@
       box-shadow: 0 32px 80px rgba(0,0,0,0.65);
       animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
-    .title-box .ts-title { font-size: 1.9rem; font-weight: 900; margin-bottom: 4px; letter-spacing: -0.02em; }
+    .title-box .ts-title {
+      font-size: 2.6rem;
+      font-weight: 900;
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #f59e0b 0%, #fef08a 55%, #d97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 2px 10px rgba(251,191,36,0.6));
+    }
     .title-box .ts-subtitle { color: var(--muted); font-size: 0.88rem; margin-bottom: 24px; }
     .prize-table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 8px; text-align: left; }
     .prize-table th { color: var(--muted); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 8px; border-bottom: 1px solid var(--border); }
