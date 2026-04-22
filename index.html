@@ -440,12 +440,12 @@
           <span class="corner br">${outcome.symbol}<br>JKR</span>`;
       } else {
         front.innerHTML = `
-          <span class="corner tl">${outcome.rank}<br>${outcome.symbol}</span>
+          <span class="corner tl">${outcome.symbol}</span>
           <div class="card-center">
             <span class="card-rank">${outcome.rank}</span>
             <span class="card-suit-sym">${outcome.symbol}</span>
           </div>
-          <span class="corner br">${outcome.rank}<br>${outcome.symbol}</span>`;
+          <span class="corner br">${outcome.symbol}</span>`;
       }
     }
 
@@ -514,7 +514,7 @@
     function spadeCornerReveal(cardEl, outcome) {
       return new Promise(resolve => {
         const peek = cardEl.querySelector('.card-peek');
-        peek.querySelector('.peek-sym').textContent = `${outcome.rank}♠`;
+        peek.querySelector('.peek-sym').textContent = outcome.symbol;
         peek.classList.add('active');
 
         setTimeout(() => {
