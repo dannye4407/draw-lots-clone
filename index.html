@@ -110,6 +110,7 @@
       aspect-ratio: 5 / 7;
       perspective: 700px;
       cursor: pointer;
+      position: relative;
     }
     .card.used    { cursor: default; opacity: 0.45; pointer-events: none; }
     .card.revealed { cursor: default; }
@@ -266,6 +267,59 @@
       letter-spacing: 0.01em;
     }
     .btn-buy:hover { background: #15803d; }
+
+    /* Corner peek */
+    .card-peek {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 46%; height: 52%;
+      z-index: 20;
+      pointer-events: none;
+      background: var(--card-front-bg);
+      border-top-left-radius: 4px;
+      border-bottom-right-radius: 5px;
+      display: flex; align-items: flex-end; justify-content: flex-end;
+      padding: 3px;
+      color: #1a202c;
+      font-family: Georgia, serif; font-weight: 700;
+      font-size: clamp(0.5rem, 1.5vw, 0.9rem);
+      clip-path: polygon(100% 100%, 100% 100%, 100% 100%);
+      filter: drop-shadow(-2px -2px 5px rgba(0,0,0,0.45));
+    }
+    .card-peek.active {
+      animation: peek-open 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    @keyframes peek-open {
+      0%   { clip-path: polygon(100% 100%, 100% 100%, 100% 100%); }
+      70%  { clip-path: polygon(12% 100%, 100% 12%, 100% 100%); }
+      100% { clip-path: polygon(18% 100%, 100% 18%, 100% 100%); }
+    }
+
+    /* Peek toast */
+    #peek-toast {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(10, 25, 15, 0.92);
+      color: #fff;
+      border: 1px solid rgba(251,191,36,0.35);
+      border-radius: 14px;
+      padding: 20px 32px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-align: center;
+      z-index: 600;
+      pointer-events: none;
+      line-height: 1.5;
+    }
+    #peek-toast.hidden { display: none; }
+    #peek-toast .toast-suit { font-size: 2rem; display: block; margin-bottom: 6px; }
+    #peek-toast .toast-sub  { font-size: 0.88rem; font-weight: 400; color: #94a3b8; }
+    @keyframes toast-pop {
+      from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+      to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+    }
+    #peek-toast:not(.hidden) { animation: toast-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
   </style>
 </head>
 <body>
@@ -297,6 +351,12 @@
 
   <div id="game-view">
     <div class="card-grid" id="card-grid"></div>
+  </div>
+
+  <div id="peek-toast" class="hidden">
+    <span class="toast-suit">♠</span>
+    It's a Spade!<br>
+    <span class="toast-sub">Let's see the rest of the card…</span>
   </div>
 
   <div id="prize-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-prize">
@@ -400,7 +460,8 @@
           <div class="card-inner">
             <div class="card-back"></div>
             <div class="card-front"></div>
-          </div>`;
+          </div>
+          <div class="card-peek"><span class="peek-sym"></span></div>`;
         card.addEventListener('click', () => handleCardClick(card));
         grid.appendChild(card);
       }
@@ -429,16 +490,42 @@
         return;
       }
 
+      if (outcome.suit === 'spades') {
+        await spadeCornerReveal(cardEl, outcome);
+      }
+
       setCardFace(cardEl, outcome);
 
       document.querySelectorAll('.card').forEach(c => {
         if (c !== cardEl) c.classList.add('used');
       });
 
+      // Fade out peek before flipping
+      const peek = cardEl.querySelector('.card-peek');
+      peek.style.transition = 'opacity 0.2s';
+      peek.style.opacity = '0';
+
       cardEl.classList.add('flipped', 'revealed');
       cardEl.querySelector('.card-inner').addEventListener('transitionend', () => {
         showModal(outcome);
       }, { once: true });
+    }
+
+    function spadeCornerReveal(cardEl, outcome) {
+      return new Promise(resolve => {
+        const peek = cardEl.querySelector('.card-peek');
+        peek.querySelector('.peek-sym').textContent = `${outcome.rank}♠`;
+        peek.classList.add('active');
+
+        setTimeout(() => {
+          const toast = document.getElementById('peek-toast');
+          toast.classList.remove('hidden');
+          setTimeout(() => {
+            toast.classList.add('hidden');
+            resolve();
+          }, 1800);
+        }, 850);
+      });
     }
 
     // ── Modal ─────────────────────────────────────────────────────────────
