@@ -239,6 +239,36 @@
       100% { opacity: 0; }
     }
 
+    /* Full-screen flash (grand tier) */
+    .fx-flash {
+      position: fixed;
+      inset: 0;
+      background: rgba(251, 191, 36, 0.35);
+      z-index: 650;
+      pointer-events: none;
+      animation: fx-flash-pulse 0.5s ease-out both;
+    }
+    @keyframes fx-flash-pulse {
+      0%   { opacity: 0; }
+      35%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Grand-tier body shake */
+    body.shake-grand { animation: shake-grand 0.4s ease-in-out both; }
+    @keyframes shake-grand {
+      0%, 100% { transform: translateX(0); }
+      15% { transform: translateX(-6px); }
+      30% { transform: translateX(5px); }
+      45% { transform: translateX(-4px); }
+      60% { transform: translateX(3px); }
+      75% { transform: translateX(-2px); }
+      90% { transform: translateX(1px); }
+    }
+
+    /* Shared canvas overlay for particle effects */
+    .fx-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 700; }
+
     .modal-emoji   { font-size: 3rem; margin-bottom: 10px; }
     .modal-card    { font-size: 0.9rem; color: var(--muted); margin-bottom: 6px; }
     .modal-prize   { font-size: 1.6rem; font-weight: 700; margin-bottom: 28px; color: #e07b39; }
@@ -778,6 +808,117 @@
       });
     }
 
+    // ── Canvas FX ─────────────────────────────────────────────────────────
+    function createFxCanvas() {
+      const c = document.createElement('canvas');
+      c.className = 'fx-canvas';
+      c.width = window.innerWidth;
+      c.height = window.innerHeight;
+      document.body.appendChild(c);
+      return c;
+    }
+
+    function runConfetti() {
+      const c = createFxCanvas();
+      const ctx = c.getContext('2d');
+      const colors = ['#fbbf24', '#f59e0b', '#d97706', '#b91c1c', '#ffffff'];
+      const particles = [];
+      for (let i = 0; i < 150; i++) {
+        particles.push({
+          x: Math.random() * c.width,
+          y: -10 - Math.random() * 100,
+          vx: (Math.random() - 0.5) * 200,
+          vy: 100 + Math.random() * 200,
+          angle: Math.random() * Math.PI * 2,
+          spin: (Math.random() - 0.5) * 6,
+          w: 4, h: 8,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          dead: false,
+        });
+      }
+      const gravity = 400;
+      const start = performance.now();
+      let last = start;
+      function frame(now) {
+        const dt = Math.min(0.05, (now - last) / 1000); last = now;
+        ctx.clearRect(0, 0, c.width, c.height);
+        let alive = 0;
+        for (const p of particles) {
+          if (p.dead) continue;
+          p.vy += gravity * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.angle += p.spin * dt;
+          if (p.y > c.height + 50) { p.dead = true; continue; }
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.angle);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+          alive++;
+        }
+        if (alive > 0 && now - start < 4000) requestAnimationFrame(frame);
+        else c.remove();
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function runSparkles(cx, cy) {
+      const c = createFxCanvas();
+      const ctx = c.getContext('2d');
+      const particles = [];
+      for (let i = 0; i < 30; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random() * 80;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          age: 0, life: 1.2, r: 3,
+        });
+      }
+      const gravity = 150;
+      let last = performance.now();
+      function frame(now) {
+        const dt = Math.min(0.05, (now - last) / 1000); last = now;
+        ctx.clearRect(0, 0, c.width, c.height);
+        let alive = 0;
+        for (const p of particles) {
+          p.age += dt;
+          if (p.age >= p.life) continue;
+          p.vy += gravity * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          const alpha = 1 - (p.age / p.life);
+          const radius = p.r * 3;
+          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
+          grad.addColorStop(0, `rgba(255, 215, 0, ${alpha})`);
+          grad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          alive++;
+        }
+        if (alive > 0) requestAnimationFrame(frame);
+        else c.remove();
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function fxFlash() {
+      const d = document.createElement('div');
+      d.className = 'fx-flash';
+      document.body.appendChild(d);
+      setTimeout(() => d.remove(), 500);
+    }
+
+    function fxShake() {
+      document.body.classList.add('shake-grand');
+      setTimeout(() => document.body.classList.remove('shake-grand'), 400);
+    }
+
     // ── Modal ─────────────────────────────────────────────────────────────
     function getTier(outcome, config) {
       if (outcome.prize === null) return 'sad';
@@ -811,6 +952,16 @@
       if (tier === 'sad') fxDim();
       sfxTier(tier);
       document.getElementById('prize-modal').classList.remove('hidden');
+
+      if (tier === 'grand') {
+        fxFlash();
+        fxShake();
+        runConfetti();
+      } else if (tier === 'win') {
+        const box = document.querySelector('#prize-modal .modal-box');
+        const rect = box.getBoundingClientRect();
+        runSparkles(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      }
     }
 
     function playAgain() {
