@@ -83,7 +83,8 @@
     .prize-table td { padding: 6px 8px 6px 0; vertical-align: middle; }
     .prize-table select { width: 110px; }
     .prize-table input[type="text"] { min-width: 130px; }
-    .prize-table input[type="number"] { width: 80px; }
+    .prize-table .prize-slots { width: 80px; }
+    .prize-table .prize-value { width: 90px; }
 
     .btn {
       display: inline-flex;
@@ -145,13 +146,14 @@
             <th>Suit</th>
             <th>Rank</th>
             <th>Prize Name</th>
+            <th>£ Value</th>
             <th>Slots</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="prize-body">
           <tr class="empty-row">
-            <td colspan="5" class="empty-state">No prizes configured. Add one below.</td>
+            <td colspan="6" class="empty-state">No prizes configured. Add one below.</td>
           </tr>
         </tbody>
       </table>
@@ -204,11 +206,13 @@ function addPrizeRow(data = {}) {
     `<option value="${r.value}" ${r.value === data.rank ? 'selected' : ''}>${r.label}</option>`
   ).join('');
 
+  const valueAttr = (data.value === 0 || data.value) ? escAttr(data.value) : '';
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td><select class="suit-select" onchange="updateRankOptions(this)">${suitOpts}</select></td>
     <td><select class="rank-select">${rankOpts}</select></td>
     <td><input type="text"   class="prize-name"  placeholder="Prize name" value="${escAttr(data.prize || '')}"></td>
+    <td><input type="number" class="prize-value" min="0" step="0.01" placeholder="£" value="${valueAttr}"></td>
     <td><input type="number" class="prize-slots" min="1" value="${escAttr(data.slots || 1)}" onchange="updateTotal()"></td>
     <td><button class="btn-remove" onclick="removeRow(this)" title="Remove">×</button></td>
   `;
@@ -220,7 +224,7 @@ function removeRow(btn) {
   const tbody = document.getElementById('prize-body');
   btn.closest('tr').remove();
   if (!tbody.querySelector('tr:not(.empty-row)')) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5" class="empty-state">No prizes configured. Add one below.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6" class="empty-state">No prizes configured. Add one below.</td></tr>';
   }
   updateTotal();
 }
@@ -247,12 +251,18 @@ function saveConfig() {
     const rank  = row.querySelector('.rank-select').value;
     const prize = row.querySelector('.prize-name').value.trim();
     const slots = parseInt(row.querySelector('.prize-slots').value);
+    const rawValue = row.querySelector('.prize-value').value.trim();
+    const value = rawValue === '' ? null : Number(rawValue);
     if (!prize)          { alert('All prize rows must have a prize name.');    return; }
     if (!slots || slots < 1) { alert('All prize rows must have at least 1 slot.'); return; }
+    if (rawValue !== '' && (!isFinite(value) || value < 0)) {
+      alert('Prize value must be a non-negative number.');
+      return;
+    }
     const key = `${suit}-${rank}`;
     if (seen.has(key))   { alert(`Duplicate card: ${suit} ${rank}.`);          return; }
     seen.add(key);
-    prizes.push({ suit, rank, prize, slots });
+    prizes.push({ suit, rank, prize, slots, value });
   }
 
   const totalSlots = prizes.reduce((s, p) => s + p.slots, 0);
