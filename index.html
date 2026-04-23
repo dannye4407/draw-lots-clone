@@ -294,6 +294,8 @@
       70%  { clip-path: polygon(12% 100%, 100% 12%, 100% 100%); }
       100% { clip-path: polygon(18% 100%, 100% 18%, 100% 100%); }
     }
+    .card-peek.peek-red   { color: #c0392b; }
+    .card-peek.peek-black { color: #1a202c; }
 
     /* Peek toast */
     #peek-toast {
@@ -305,16 +307,21 @@
       border: 1px solid rgba(251,191,36,0.35);
       border-radius: 14px;
       padding: 20px 32px;
-      font-size: 1.1rem;
-      font-weight: 700;
+      min-width: 280px;
       text-align: center;
       z-index: 600;
       pointer-events: none;
-      line-height: 1.5;
+      line-height: 1.4;
     }
     #peek-toast.hidden { display: none; }
-    #peek-toast .toast-suit { font-size: 2rem; display: block; margin-bottom: 6px; }
-    #peek-toast .toast-sub  { font-size: 0.88rem; font-weight: 400; color: #94a3b8; }
+    #peek-toast > span { display: block; }
+    #peek-toast .toast-suit  { font-size: 2rem; margin-bottom: 4px; }
+    #peek-toast .toast-line1 { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+    #peek-toast .toast-line2 { font-size: 1rem;   font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+    #peek-toast .toast-line3 { font-size: 0.85rem; font-weight: 400; color: #94a3b8; }
+    #peek-toast .toast-line3:empty { display: none; }
+    #peek-toast.suit-red  .toast-suit { color: #ef4444; }
+    #peek-toast.suit-black .toast-suit { color: #fff; }
     @keyframes toast-pop {
       from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
       to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
@@ -355,9 +362,10 @@
   </div>
 
   <div id="peek-toast" class="hidden">
-    <span class="toast-suit">♠</span>
-    It's a Spade!<br>
-    <span class="toast-sub">Let's see the rest of the card…</span>
+    <span class="toast-suit" id="toast-suit"></span>
+    <span class="toast-line1" id="toast-line1"></span>
+    <span class="toast-line2" id="toast-line2"></span>
+    <span class="toast-line3" id="toast-line3"></span>
   </div>
 
   <div id="prize-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-prize">
@@ -378,6 +386,7 @@
       { name: 'clubs',    symbol: '♣', colorClass: 'black' },
     ];
     const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+    const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 
     const FULL_DECK = [];
     for (const s of SUITS) {
@@ -632,9 +641,7 @@
         return;
       }
 
-      if (outcome.suit === 'spades') {
-        await spadeCornerReveal(cardEl, outcome);
-      }
+      await cornerPeek(cardEl, outcome, config);
 
       setCardFace(cardEl, outcome);
 
@@ -654,21 +661,85 @@
       }, { once: true });
     }
 
-    function spadeCornerReveal(cardEl, outcome) {
+    // ── Corner peek (extended to all suits) ───────────────────────────────
+    function buildPeekText(config, outcome) {
+      const SUIT_NAME = { spades: 'Spade', hearts: 'Heart', diamonds: 'Diamond', clubs: 'Club', joker: 'Joker' };
+      const RANK_LABEL = { A: 'Ace', J: 'Jack', Q: 'Queen', K: 'King' };
+
+      const prizesInSuit = config.prizes.filter(p => p.suit === outcome.suit);
+      const line1 = `A ${SUIT_NAME[outcome.suit] || outcome.suit}!`;
+
+      let line2;
+      if (prizesInSuit.length === 0) {
+        line2 = 'No winners in this suit…';
+      } else if (outcome.suit === 'joker') {
+        const hasRJ = prizesInSuit.some(p => p.rank === 'RJ');
+        const hasBJ = prizesInSuit.some(p => p.rank === 'BJ');
+        if (hasRJ && hasBJ) line2 = 'Red or Black Joker wins!';
+        else if (hasRJ)     line2 = 'Red Joker wins!';
+        else                line2 = 'Black Joker wins!';
+      } else {
+        const winningRanks = [...new Set(prizesInSuit.map(p => p.rank))]
+          .sort((a, b) => RANK_ORDER.indexOf(a) - RANK_ORDER.indexOf(b));
+
+        if (winningRanks.length === 13) {
+          line2 = `All ${SUIT_NAME[outcome.suit]}s are winners!`;
+          const byRank = [...prizesInSuit].sort((a, b) =>
+            RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank));
+          const allHaveValues = byRank.every(p => typeof p.value === 'number');
+          const monotonic = allHaveValues && byRank.every((p, i) =>
+            i === 0 || p.value >= byRank[i - 1].value);
+          if (monotonic) line2 += ' The higher the card, the bigger the prize!';
+        } else {
+          const labels = winningRanks.map(r => RANK_LABEL[r] || r);
+          let list;
+          if      (labels.length === 1) list = labels[0];
+          else if (labels.length === 2) list = `${labels[0]} or ${labels[1]}`;
+          else list = labels.slice(0, -1).join(', ') + ', or ' + labels[labels.length - 1];
+          line2 = `Any ${list} wins!`;
+        }
+      }
+
+      let line3 = '';
+      const vals = prizesInSuit.map(p => p.value).filter(v => typeof v === 'number');
+      if (vals.length > 0) {
+        const fmt = v => Number.isInteger(v) ? `£${v}` : `£${v.toFixed(2)}`;
+        const uniq = [...new Set(vals)];
+        if (uniq.length === 1) line3 = `Prize ${fmt(uniq[0])}`;
+        else line3 = `Prizes ${fmt(Math.min(...vals))}–${fmt(Math.max(...vals))}`;
+      }
+
+      return { line1, line2, line3 };
+    }
+
+    function cornerPeek(cardEl, outcome, config) {
       return new Promise(resolve => {
         const peek = cardEl.querySelector('.card-peek');
-        peek.querySelector('.peek-sym').textContent = outcome.symbol;
+        const sym  = peek.querySelector('.peek-sym');
+        sym.textContent = outcome.symbol;
+        peek.classList.remove('peek-red', 'peek-black');
+        if (outcome.suit === 'hearts' || outcome.suit === 'diamonds') peek.classList.add('peek-red');
+        else if (outcome.suit === 'spades' || outcome.suit === 'clubs') peek.classList.add('peek-black');
         sfxPeek();
         peek.classList.add('active');
 
+        const text = buildPeekText(config, outcome);
+        const toast = document.getElementById('peek-toast');
+        document.getElementById('toast-suit').textContent = outcome.suit === 'joker' ? '🃏' : outcome.symbol;
+        document.getElementById('toast-line1').textContent = text.line1;
+        document.getElementById('toast-line2').textContent = text.line2;
+        document.getElementById('toast-line3').textContent = text.line3;
+        toast.classList.remove('suit-red', 'suit-black');
+        if (outcome.suit === 'hearts' || outcome.suit === 'diamonds') toast.classList.add('suit-red');
+        else if (outcome.suit === 'spades' || outcome.suit === 'clubs') toast.classList.add('suit-black');
+
         setTimeout(() => {
-          const toast = document.getElementById('peek-toast');
           sfxToast();
           toast.classList.remove('hidden');
           setTimeout(() => {
             toast.classList.add('hidden');
             resolve();
-          }, 1800);
+          }, 2500);
         }, 850);
       });
     }
