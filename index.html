@@ -610,6 +610,28 @@
       src.start(t0); src.stop(t0 + duration);
     }
 
+    function sfxLucky() {
+      if (isMuted()) return;
+      const ctx = audio(); if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const master = _master(ctx);
+      // Ascending twinkle: E5 → A5 → E6 (bright, short, celebratory)
+      const notes = [
+        { freq: 659.25,  when: 0.00, dur: 0.10, peak: 0.18 },
+        { freq: 880.00,  when: 0.10, dur: 0.10, peak: 0.20 },
+        { freq: 1318.51, when: 0.22, dur: 0.18, peak: 0.22 },
+      ];
+      for (const n of notes) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = n.freq;
+        const gain = ctx.createGain();
+        _env(gain, t0 + n.when, n.peak, 0.005, 0.02, 0.5, 0.04, n.dur);
+        osc.connect(gain).connect(master);
+        osc.start(t0 + n.when); osc.stop(t0 + n.when + n.dur);
+      }
+    }
+
     function _playNote(ctx, master, when, freq, noteDur, peak) {
       const mix = ctx.createGain(); mix.gain.value = 1;
       ['sine', 'triangle'].forEach((type, i) => {
@@ -859,8 +881,12 @@
         if (outcome.suit === 'hearts' || outcome.suit === 'diamonds') toast.classList.add('suit-red');
         else if (outcome.suit === 'spades' || outcome.suit === 'clubs') toast.classList.add('suit-black');
 
+        const suitIsLucky = outcome.suit !== 'joker'
+          && new Set(config.prizes.filter(p => p.suit === outcome.suit).map(p => p.rank)).size === 13;
+
         setTimeout(() => {
-          sfxToast();
+          if (suitIsLucky) sfxLucky();
+          else             sfxToast();
           toast.classList.remove('hidden');
           setTimeout(() => {
             toast.classList.add('hidden');
