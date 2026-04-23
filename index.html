@@ -327,7 +327,8 @@
     <h1>Chase the Ace ♠</h1>
     <div class="header-actions">
       <a class="btn" href="admin.html">⚙ Admin</a>
-      <button class="btn btn-icon" id="theme-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle light/dark theme">☀️</button>
+      <button class="btn btn-icon" id="mute-btn"  onclick="toggleMute()"  title="Toggle sound"  aria-label="Toggle sound">🔊</button>
+      <button class="btn btn-icon" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle light/dark theme">☀️</button>
     </div>
   </header>
 
@@ -388,6 +389,146 @@
     FULL_DECK.push({ suit: 'joker', rank: 'BJ', symbol: '🃏', colorClass: 'joker-black', display: 'Black Joker' });
 
     let gameActive = false;
+
+    // ── Audio ─────────────────────────────────────────────────────────────
+    let _audioCtx = null;
+    function audio() {
+      if (!_audioCtx) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return null;
+        _audioCtx = new Ctor();
+      }
+      if (_audioCtx.state === 'suspended') _audioCtx.resume();
+      return _audioCtx;
+    }
+
+    function isMuted() { return localStorage.getItem('dlMute') === '1'; }
+
+    function updateMuteIcon() {
+      const btn = document.getElementById('mute-btn');
+      if (btn) btn.textContent = isMuted() ? '🔇' : '🔊';
+    }
+
+    function toggleMute() {
+      localStorage.setItem('dlMute', isMuted() ? '0' : '1');
+      updateMuteIcon();
+    }
+
+    function _env(gainNode, t0, peak, attack, decay, sustain, release, duration) {
+      const g = gainNode.gain;
+      g.setValueAtTime(0, t0);
+      g.linearRampToValueAtTime(peak, t0 + attack);
+      g.linearRampToValueAtTime(peak * sustain, t0 + attack + decay);
+      g.setValueAtTime(peak * sustain, t0 + duration - release);
+      g.linearRampToValueAtTime(0, t0 + duration);
+    }
+
+    function _master(ctx) {
+      const g = ctx.createGain();
+      g.gain.value = 0.7;
+      g.connect(ctx.destination);
+      return g;
+    }
+
+    function _noiseBuffer(ctx, durationSec) {
+      const n = Math.max(1, Math.floor(ctx.sampleRate * durationSec));
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+      return buf;
+    }
+
+    function sfxPeek() {
+      if (isMuted()) return;
+      const ctx = audio(); if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const duration = 0.15;
+      const master = _master(ctx);
+      const src = ctx.createBufferSource();
+      src.buffer = _noiseBuffer(ctx, duration);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass'; filter.frequency.value = 2000; filter.Q.value = 5;
+      const gain = ctx.createGain();
+      _env(gain, t0, 0.25, 0.02, 0, 0, 0.13, duration);
+      src.connect(filter).connect(gain).connect(master);
+      src.start(t0); src.stop(t0 + duration);
+    }
+
+    function sfxToast() {
+      if (isMuted()) return;
+      const ctx = audio(); if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const duration = 0.08;
+      const master = _master(ctx);
+      const osc = ctx.createOscillator();
+      osc.type = 'sine'; osc.frequency.value = 900;
+      const gain = ctx.createGain();
+      _env(gain, t0, 0.18, 0.005, 0.01, 0.7, 0.065, duration);
+      osc.connect(gain).connect(master);
+      osc.start(t0); osc.stop(t0 + duration);
+    }
+
+    function sfxFlip() {
+      if (isMuted()) return;
+      const ctx = audio(); if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const duration = 0.2;
+      const master = _master(ctx);
+      const src = ctx.createBufferSource();
+      src.buffer = _noiseBuffer(ctx, duration);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(800, t0);
+      filter.frequency.linearRampToValueAtTime(200, t0 + duration);
+      const gain = ctx.createGain();
+      _env(gain, t0, 0.22, 0.01, 0.05, 0.5, 0.14, duration);
+      src.connect(filter).connect(gain).connect(master);
+      src.start(t0); src.stop(t0 + duration);
+    }
+
+    function _playNote(ctx, master, when, freq, noteDur, peak) {
+      const mix = ctx.createGain(); mix.gain.value = 1;
+      ['sine', 'triangle'].forEach((type, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = type; osc.frequency.value = freq;
+        const subG = ctx.createGain();
+        subG.gain.value = i === 0 ? 1 : 0.5;
+        osc.connect(subG).connect(mix);
+        osc.start(when); osc.stop(when + noteDur);
+      });
+      const gain = ctx.createGain();
+      _env(gain, when, peak, 0.01, 0.05, 0.4, 0.12, noteDur);
+      mix.connect(gain).connect(master);
+    }
+
+    function sfxTier(tier) {
+      if (isMuted()) return;
+      const ctx = audio(); if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const master = _master(ctx);
+      if (tier === 'grand') {
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((f, i) => _playNote(ctx, master, t0 + i * 0.18, f, 0.15, 0.3));
+      } else if (tier === 'win') {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(659.25, t0);
+        osc.frequency.setValueAtTime(783.99, t0 + 0.15);
+        const gain = ctx.createGain();
+        _env(gain, t0, 0.25, 0.01, 0.05, 0.6, 0.12, 0.35);
+        osc.connect(gain).connect(master);
+        osc.start(t0); osc.stop(t0 + 0.35);
+      } else if (tier === 'sad') {
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(392, t0);
+        osc.frequency.linearRampToValueAtTime(220, t0 + 0.7);
+        const gain = ctx.createGain();
+        _env(gain, t0, 0.2, 0.02, 0.1, 0.3, 0.6, 0.7);
+        osc.connect(gain).connect(master);
+        osc.start(t0); osc.stop(t0 + 0.7);
+      }
+    }
 
     // ── RNG ───────────────────────────────────────────────────────────────
     function unbiasedRandom(max) {
@@ -505,6 +646,7 @@
       peek.style.transition = 'opacity 0.2s';
       peek.style.opacity = '0';
 
+      sfxFlip();
       cardEl.classList.add('flipped', 'revealed');
       cardEl.querySelector('.card-inner').addEventListener('transitionend', () => {
         showModal(outcome);
@@ -515,10 +657,12 @@
       return new Promise(resolve => {
         const peek = cardEl.querySelector('.card-peek');
         peek.querySelector('.peek-sym').textContent = outcome.symbol;
+        sfxPeek();
         peek.classList.add('active');
 
         setTimeout(() => {
           const toast = document.getElementById('peek-toast');
+          sfxToast();
           toast.classList.remove('hidden');
           setTimeout(() => {
             toast.classList.add('hidden');
@@ -540,6 +684,7 @@
     }
 
     function playAgain() {
+      sfxToast();
       document.getElementById('prize-modal').classList.add('hidden');
       document.getElementById('game-view').style.display = 'none';
       document.getElementById('title-screen').classList.remove('hidden');
@@ -596,6 +741,7 @@
     }
 
     function startGame() {
+      sfxToast();
       document.getElementById('title-screen').classList.add('hidden');
       document.getElementById('not-configured').style.display = 'none';
       document.getElementById('game-view').style.display = 'flex';
@@ -620,6 +766,7 @@
     // ── Init ──────────────────────────────────────────────────────────────
     function init() {
       applyTheme();
+      updateMuteIcon();
       const raw = localStorage.getItem('dlConfig');
       if (!raw) return;
       let config;
