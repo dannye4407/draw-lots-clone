@@ -958,7 +958,6 @@
         fxShake();
         runConfetti();
       } else if (tier === 'win') {
-        const box = document.querySelector('#prize-modal .modal-box');
         const rect = box.getBoundingClientRect();
         runSparkles(rect.left + rect.width / 2, rect.top + rect.height / 2);
       }
