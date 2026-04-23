@@ -729,6 +729,7 @@
           </div>
           <div class="card-peek"><span class="peek-sym"></span></div>`;
         card.addEventListener('click', () => handleCardClick(card));
+        card.addEventListener('animationend', () => card.classList.remove('deal-in'), { once: true });
         grid.appendChild(card);
       }
       gameActive = true;
