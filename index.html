@@ -408,12 +408,11 @@
       line-height: 1.4;
     }
     #peek-toast.hidden { display: none; }
-    #peek-toast > span { display: block; }
-    #peek-toast .toast-suit  { font-size: 2rem; margin-bottom: 4px; }
-    #peek-toast .toast-line1 { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
-    #peek-toast .toast-line2 { font-size: 1rem;   font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
-    #peek-toast .toast-line3 { font-size: 0.85rem; font-weight: 400; color: #94a3b8; }
-    #peek-toast .toast-line3:empty { display: none; }
+    #peek-toast .toast-suit  { display: block; font-size: 2rem; margin-bottom: 6px; }
+    #peek-toast .toast-body  { display: flex; flex-direction: column; gap: 3px; }
+    #peek-toast .toast-hero  { font-size: 1.2rem; font-weight: 800; margin-bottom: 4px; }
+    #peek-toast .toast-row   { font-size: 0.95rem; font-weight: 500; color: #f1f5f9; }
+    #peek-toast .toast-row.noprize { color: #94a3b8; font-weight: 400; }
     #peek-toast.suit-red  .toast-suit { color: #ef4444; }
     #peek-toast.suit-black .toast-suit { color: #fff; }
     @keyframes toast-pop {
@@ -477,9 +476,7 @@
 
   <div id="peek-toast" class="hidden">
     <span class="toast-suit" id="toast-suit"></span>
-    <span class="toast-line1" id="toast-line1"></span>
-    <span class="toast-line2" id="toast-line2"></span>
-    <span class="toast-line3" id="toast-line3"></span>
+    <div class="toast-body" id="toast-body"></div>
   </div>
 
   <div id="prize-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-prize">
@@ -811,53 +808,88 @@
 
     // ── Corner peek (extended to all suits) ───────────────────────────────
     function buildPeekText(config, outcome) {
-      const SUIT_NAME = { spades: 'Spade', hearts: 'Heart', diamonds: 'Diamond', clubs: 'Club', joker: 'Joker' };
+      const SUIT_NAME  = { spades: 'Spade', hearts: 'Heart', diamonds: 'Diamond', clubs: 'Club', joker: 'Joker' };
       const RANK_LABEL = { A: 'Ace', J: 'Jack', Q: 'Queen', K: 'King' };
 
+      const rankName = r => RANK_LABEL[r] || r;
+      const fmt = v => Number.isInteger(v)
+        ? `£${v.toLocaleString('en-GB')}`
+        : `£${v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      const suitSymbol = outcome.suit === 'joker' ? '🃏' : outcome.symbol;
+      const suitName   = SUIT_NAME[outcome.suit] || outcome.suit;
       const prizesInSuit = config.prizes.filter(p => p.suit === outcome.suit);
-      const line1 = `A ${SUIT_NAME[outcome.suit] || outcome.suit}!`;
 
-      let line2;
-      if (prizesInSuit.length === 0) {
-        line2 = 'No winners in this suit…';
-      } else if (outcome.suit === 'joker') {
-        const hasRJ = prizesInSuit.some(p => p.rank === 'RJ');
-        const hasBJ = prizesInSuit.some(p => p.rank === 'BJ');
-        if (hasRJ && hasBJ) line2 = 'Red or Black Joker wins!';
-        else if (hasRJ)     line2 = 'Red Joker wins!';
-        else                line2 = 'Black Joker wins!';
-      } else {
-        const winningRanks = [...new Set(prizesInSuit.map(p => p.rank))]
-          .sort((a, b) => RANK_ORDER.indexOf(a) - RANK_ORDER.indexOf(b));
+      // ── Joker ─────────────────────────────────────────────────────────
+      if (outcome.suit === 'joker') {
+        const rj = prizesInSuit.find(p => p.rank === 'RJ');
+        const bj = prizesInSuit.find(p => p.rank === 'BJ');
+        const lines = [{ hero: true, text: 'You peeled a Joker' }];
+        if (rj) lines.push({ text: `Red Joker 🃏 Wins ${typeof rj.value === 'number' ? fmt(rj.value) : 'a prize'}` });
+        if (bj) lines.push({ text: `Black Joker 🃏 Wins ${typeof bj.value === 'number' ? fmt(bj.value) : 'a prize'}` });
+        if (!rj && !bj) lines.push({ text: 'No Joker prize configured', noprize: true });
+        return { suitSymbol, lines };
+      }
 
-        if (winningRanks.length === 13) {
-          line2 = `All ${SUIT_NAME[outcome.suit]}s are winners!`;
-          const byRank = [...prizesInSuit].sort((a, b) =>
-            RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank));
-          const allHaveValues = byRank.every(p => typeof p.value === 'number');
-          const monotonic = allHaveValues && byRank.every((p, i) =>
-            i === 0 || p.value >= byRank[i - 1].value);
-          if (monotonic) line2 += ' The higher the card, the bigger the prize!';
+      const winningRanks = [...new Set(prizesInSuit.map(p => p.rank))];
+      const sym = outcome.symbol;
+
+      // ── All 13 ranks win (lucky suit) ─────────────────────────────────
+      if (winningRanks.length === 13) {
+        const withValues = prizesInSuit.filter(p => typeof p.value === 'number');
+        let topLine;
+        if (withValues.length > 0) {
+          const top = [...withValues].sort((a, b) => b.value - a.value)[0];
+          topLine = `Pull the ${rankName(top.rank)} ${sym} and Win ${fmt(top.value)}!`;
         } else {
-          const labels = winningRanks.map(r => RANK_LABEL[r] || r);
-          let list;
-          if      (labels.length === 1) list = labels[0];
-          else if (labels.length === 2) list = `${labels[0]} or ${labels[1]}`;
-          else list = labels.slice(0, -1).join(', ') + ', or ' + labels[labels.length - 1];
-          line2 = `Any ${list} wins!`;
+          topLine = `Every ${suitName} wins a prize!`;
         }
+        return {
+          suitSymbol,
+          lines: [
+            { hero: true, text: `Congrats, All ${sym}s Win a Prize.` },
+            { text: topLine },
+          ],
+        };
       }
 
-      let line3 = '';
-      const vals = prizesInSuit.map(p => p.value).filter(v => typeof v === 'number');
-      if (vals.length > 0) {
-        const fmt = v => Number.isInteger(v) ? `£${v}` : `£${v.toFixed(2)}`;
-        const uniq = [...new Set(vals)];
-        if (uniq.length === 1) line3 = `Prize ${fmt(uniq[0])}`;
-        else line3 = `Prizes ${fmt(Math.min(...vals))}–${fmt(Math.max(...vals))}`;
+      // ── No winners in this suit ───────────────────────────────────────
+      if (winningRanks.length === 0) {
+        return {
+          suitSymbol,
+          lines: [
+            { hero: true, text: `You peeled a ${suitName}` },
+            { text: 'No prize cards in this suit', noprize: true },
+          ],
+        };
       }
 
-      return { line1, line2, line3 };
+      // ── Partial winners ───────────────────────────────────────────────
+      const lines = [{ hero: true, text: `You peeled a ${suitName}` }];
+
+      // Winning prizes, sorted by rank descending (Ace first)
+      const sortedWinners = [...prizesInSuit].sort((a, b) =>
+        RANK_ORDER.indexOf(b.rank) - RANK_ORDER.indexOf(a.rank));
+      for (const p of sortedWinners) {
+        const value = typeof p.value === 'number' ? ` Wins ${fmt(p.value)}` : ' Wins a prize';
+        lines.push({ text: `${rankName(p.rank)} ${sym}${value}` });
+      }
+
+      // Non-winners: show as a range if contiguous, else list
+      const winnerSet = new Set(winningRanks);
+      const losers = RANK_ORDER.filter(r => !winnerSet.has(r));   // low → high order
+      if (losers.length > 0) {
+        const lowIdx  = RANK_ORDER.indexOf(losers[0]);
+        const highIdx = RANK_ORDER.indexOf(losers[losers.length - 1]);
+        const isContiguous = (highIdx - lowIdx + 1) === losers.length;
+        let label;
+        if (losers.length === 1) label = rankName(losers[0]);
+        else if (isContiguous) label = `${rankName(losers[losers.length - 1])} - ${rankName(losers[0])}`;
+        else label = losers.map(rankName).join(', ');
+        lines.push({ text: `${label} ${sym} No Prize`, noprize: true });
+      }
+
+      return { suitSymbol, lines };
     }
 
     function cornerPeek(cardEl, outcome, config) {
@@ -873,10 +905,15 @@
 
         const text = buildPeekText(config, outcome);
         const toast = document.getElementById('peek-toast');
-        document.getElementById('toast-suit').textContent = outcome.suit === 'joker' ? '🃏' : outcome.symbol;
-        document.getElementById('toast-line1').textContent = text.line1;
-        document.getElementById('toast-line2').textContent = text.line2;
-        document.getElementById('toast-line3').textContent = text.line3;
+        document.getElementById('toast-suit').textContent = text.suitSymbol;
+        const body = document.getElementById('toast-body');
+        body.innerHTML = '';
+        for (const line of text.lines) {
+          const row = document.createElement('div');
+          row.className = line.hero ? 'toast-hero' : (line.noprize ? 'toast-row noprize' : 'toast-row');
+          row.textContent = line.text;
+          body.appendChild(row);
+        }
         toast.classList.remove('suit-red', 'suit-black');
         if (outcome.suit === 'hearts' || outcome.suit === 'diamonds') toast.classList.add('suit-red');
         else if (outcome.suit === 'spades' || outcome.suit === 'clubs') toast.classList.add('suit-black');
