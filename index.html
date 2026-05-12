@@ -323,6 +323,16 @@
       animation: pop-in-grand 0.5s cubic-bezier(0.34, 1.8, 0.4, 1) both;
       box-shadow: 0 24px 64px rgba(0,0,0,0.45), 0 0 80px rgba(251, 191, 36, 0.55);
     }
+    .modal-box.modal-big {
+      animation: pop-in-grand 0.5s cubic-bezier(0.34, 1.75, 0.4, 1) both;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.45), 0 0 56px rgba(251, 191, 36, 0.42);
+      border: 1px solid rgba(251, 191, 36, 0.55);
+    }
+    .modal-box.modal-mid {
+      animation: pop-in-mid 0.45s cubic-bezier(0.34, 1.6, 0.4, 1) both;
+      box-shadow: 0 20px 48px rgba(0,0,0,0.4), 0 0 28px rgba(251, 191, 36, 0.22);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
     .modal-box.modal-sad {
       animation: pop-in-sad 0.4s cubic-bezier(0.4, 0, 0.4, 1) both;
     }
@@ -330,6 +340,11 @@
       0%   { transform: scale(0.6); opacity: 0; }
       60%  { transform: scale(1.08); opacity: 1; }
       100% { transform: scale(1);   opacity: 1; }
+    }
+    @keyframes pop-in-mid {
+      0%   { transform: scale(0.72); opacity: 0; }
+      60%  { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1);    opacity: 1; }
     }
     @keyframes pop-in-sad {
       from { transform: scale(0.92); opacity: 0; }
@@ -484,8 +499,8 @@
     /* Peek toast */
     #peek-toast {
       position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+      top: 16px; left: 50%;
+      transform: translateX(-50%);
       background: rgba(10, 25, 15, 0.92);
       color: #fff;
       border: 1px solid rgba(251,191,36,0.35);
@@ -514,11 +529,17 @@
       font-style: italic;
       letter-spacing: 0.02em;
     }
+    #peek-toast.bottom { top: auto; bottom: 16px; }
     @keyframes toast-pop {
-      from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
-      to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+      from { transform: translateX(-50%) translateY(-20px) scale(0.9); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0)     scale(1);   opacity: 1; }
+    }
+    @keyframes toast-pop-bottom {
+      from { transform: translateX(-50%) translateY(20px) scale(0.9); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0)    scale(1);   opacity: 1; }
     }
     #peek-toast:not(.hidden) { animation: toast-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+    #peek-toast.bottom:not(.hidden) { animation: toast-pop-bottom 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
     /* Title glint sweep */
     header h1, .ts-title { position: relative; overflow: hidden; }
     header h1::before, .ts-title::before {
@@ -983,21 +1004,6 @@
       osc.start(t0); osc.stop(t0 + duration);
     }
 
-    function sfxCountTick() {
-      if (isMuted()) return;
-      const ctx = audio(); if (!ctx) return;
-      const t0 = ctx.currentTime;
-      const duration = 0.025;
-      const master = _master(ctx);
-      const osc = ctx.createOscillator();
-      osc.type = 'square';
-      osc.frequency.value = 1400;
-      const gain = ctx.createGain();
-      _env(gain, t0, 0.05, 0.001, 0.004, 0.3, 0.015, duration);
-      osc.connect(gain).connect(master);
-      osc.start(t0); osc.stop(t0 + duration);
-    }
-
     function sfxTap() {
       if (isMuted()) return;
       const ctx = audio(); if (!ctx) return;
@@ -1100,6 +1106,14 @@
       if (tier === 'grand') {
         const notes = [523.25, 659.25, 783.99, 1046.5];
         notes.forEach((f, i) => _playNote(ctx, master, t0 + i * 0.18, f, 0.15, 0.3));
+      } else if (tier === 'big') {
+        // Ascending triad with a flourish on top (C5–E5–G5–C6)
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((f, i) => _playNote(ctx, master, t0 + i * 0.13, f, 0.13, 0.26));
+      } else if (tier === 'mid') {
+        // Bright three-note rise (E5–G5–B5)
+        const notes = [659.25, 783.99, 987.77];
+        notes.forEach((f, i) => _playNote(ctx, master, t0 + i * 0.12, f, 0.11, 0.22));
       } else if (tier === 'win') {
         const osc = ctx.createOscillator();
         osc.type = 'sine';
@@ -1404,6 +1418,9 @@
         setTimeout(() => {
           if (suitIsLucky) sfxLucky();
           else             sfxToast();
+          const cardRect = cardEl.getBoundingClientRect();
+          const cardInTopHalf = cardRect.top + cardRect.height / 2 < window.innerHeight / 2;
+          toast.classList.toggle('bottom', cardInTopHalf);
           toast.classList.remove('hidden');
           cardEl.classList.add('peeked-waiting');
           document.getElementById('card-grid').classList.add('peeking');
@@ -1427,7 +1444,7 @@
       return c;
     }
 
-    function runConfetti(mode) {
+    function runConfetti(mode, count = 140) {
       const c = createFxCanvas();
       const ctx = c.getContext('2d');
       const isMoney = mode === 'money';
@@ -1439,7 +1456,7 @@
       const blackPalette = ['#fbbf24', '#fef08a', '#ffffff'];
       const goldPalette  = ['#fbbf24', '#f59e0b', '#fde68a'];
       const particles = [];
-      for (let i = 0; i < 140; i++) {
+      for (let i = 0; i < count; i++) {
         const suit = items[Math.floor(Math.random() * items.length)];
         const isRed   = suit === '♥' || suit === '♦';
         const isMoneyChar = suit === '£';
@@ -1548,10 +1565,14 @@
       if (outcome.prize === null) return 'sad';
       const match = config.prizes.find(p => p.suit === outcome.suit && p.rank === outcome.rank);
       if (!match) return 'sad';
-      // Explicit per-prize override wins; otherwise the top-value prize is grand.
+      // Explicit per-prize override wins; otherwise tier by value.
       if (match.tier) return match.tier;
       const maxValue = Math.max(...config.prizes.map(p => p.value || 0));
-      return (match.value || 0) >= maxValue ? 'grand' : 'win';
+      const value = match.value || 0;
+      if (value >= maxValue) return 'grand';
+      if (value >= 250) return 'big';
+      if (value >= 25)  return 'mid';
+      return 'win';
     }
 
     function fxDim() {
@@ -1570,9 +1591,11 @@
       }
 
       const box = document.querySelector('#prize-modal .modal-box');
-      box.classList.remove('modal-grand', 'modal-sad');
-      if (tier === 'grand') box.classList.add('modal-grand');
-      else if (tier === 'sad') box.classList.add('modal-sad');
+      box.classList.remove('modal-grand', 'modal-big', 'modal-mid', 'modal-sad');
+      if      (tier === 'grand') box.classList.add('modal-grand');
+      else if (tier === 'big')   box.classList.add('modal-big');
+      else if (tier === 'mid')   box.classList.add('modal-mid');
+      else if (tier === 'sad')   box.classList.add('modal-sad');
 
       const nm = document.getElementById('modal-nearmiss');
       if (tier === 'sad') {
@@ -1586,8 +1609,7 @@
       document.getElementById('modal-card').textContent  = getCardDisplay(outcome);
       const prizeEl = document.getElementById('modal-prize');
       prizeEl.className   = isWin ? 'modal-prize' : 'modal-prize no-prize';
-      if (isWin) animatePrizeCountup(prizeEl, outcome.prize);
-      else       prizeEl.textContent = 'No Prize';
+      prizeEl.textContent = isWin ? outcome.prize : 'No Prize';
       if (tier === 'sad') fxDim();
       sfxTier(tier);
       document.getElementById('prize-modal').classList.remove('hidden');
@@ -1596,6 +1618,13 @@
         fxFlash();
         fxShake();
         runConfetti('money');
+      } else if (tier === 'big') {
+        fxFlash();
+        runConfetti('money');
+      } else if (tier === 'mid') {
+        const rect = box.getBoundingClientRect();
+        runConfetti('suits', 60);
+        runSparkles(rect.left + rect.width / 2, rect.top + rect.height / 2);
       } else if (tier === 'win') {
         const rect = box.getBoundingClientRect();
         runSparkles(rect.left + rect.width / 2, rect.top + rect.height / 2);
@@ -1608,7 +1637,7 @@
     }
 
     function showErrorModal(message) {
-      document.querySelector('#prize-modal .modal-box').classList.remove('modal-grand', 'modal-sad');
+      document.querySelector('#prize-modal .modal-box').classList.remove('modal-grand', 'modal-big', 'modal-mid', 'modal-sad');
       document.getElementById('modal-emoji').textContent  = '⚠️';
       document.getElementById('modal-card').textContent   = '';
       const prizeEl = document.getElementById('modal-prize');
@@ -1795,37 +1824,6 @@
       const cardName = rarest.suit === 'joker' ? rankName : `${rankName} of ${SUIT_LABEL[rarest.suit]}`;
       const lead = sameSuit.length ? 'So close,' : 'Not this time —';
       return `${lead} the <strong>${cardName}</strong> would've won <strong>${rarest.prize}</strong>.`;
-    }
-
-    // ── Prize count-up animation ──────────────────────────────────────────
-    function animatePrizeCountup(el, prizeStr) {
-      const match = prizeStr.match(/£([\d,]+(?:\.\d+)?)/);
-      if (!match) {
-        el.textContent = prizeStr;
-        return;
-      }
-      const target = parseFloat(match[1].replace(/,/g, ''));
-      const before = prizeStr.slice(0, match.index);
-      const after  = prizeStr.slice(match.index + match[0].length);
-      const hasDecimals = target % 1 !== 0;
-      const fmt = v => hasDecimals
-        ? v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : Math.floor(v).toLocaleString('en-GB');
-      const duration = 900;
-      const start = performance.now();
-      let lastTick = start;
-      function frame(now) {
-        const t = Math.min(1, (now - start) / duration);
-        const ease = 1 - Math.pow(1 - t, 3);
-        el.textContent = `${before}£${fmt(target * ease)}${after}`;
-        if (now - lastTick > 90) {
-          sfxCountTick();
-          lastTick = now;
-        }
-        if (t < 1) requestAnimationFrame(frame);
-        else el.textContent = prizeStr;
-      }
-      requestAnimationFrame(frame);
     }
 
     // ── Suspense rattle beat ──────────────────────────────────────────────
